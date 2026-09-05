@@ -24,7 +24,7 @@ def keep_alive():
 # Configuração de Logs
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Credenciais fornecidas
+# Credenciais
 TELEGRAM_TOKEN = "8032829185:AAGPYud3lah87vnp4EmEW36pe6t8ebpOEsg"
 GEMINI_API_KEY = "AQ.Ab8RN6IWZKgpqVIPx0WapAAtkUACqCtKwK4xoe84M6w9l5fnHA"
 CTRADER_ACCOUNT = "9732891"
@@ -80,14 +80,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Erro: {e}")
         await context.bot.send_message(chat_id=chat_id, text="Erro ao processar mensagem.")
 
-def main():
-    keep_alive()
-
+async def main_async():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    print("Bot Vortex AI iniciado!")
-    application.run_polling()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    print("Bot Vortex AI iniciado com sucesso!")
+    while True:
+        await asyncio.sleep(3600)
+
+def main():
+    keep_alive()
+    asyncio.run(main_async())
 
 if __name__ == '__main__':
     main()
