@@ -30,7 +30,7 @@ GROQ_API_KEY = "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"
 CTRADER_ACCOUNT = "9732891"
 CTRADER_SERVER = "cTrader demo"
 
-# Estado atual do Robô (Gerenciado pela IA)
+# Estado atual do Robô
 bot_state = {
     "ativo": "XAUUSD",
     "lote": 0.10,
@@ -38,8 +38,7 @@ bot_state = {
     "estrategia": "Rompimento S&R + EMA 9/21"
 }
 
-def consultar_ia_trader(mensagem_usuario):
-    """A IA lê o que você quer e interpreta se é uma alteração de trading ou conversa normal"""
+def perguntar_ia(mensagem_usuario):
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
@@ -47,7 +46,7 @@ def consultar_ia_trader(mensagem_usuario):
         "Content-Type": "application/json"
     }
 
-    system_prompt = f"""
+    prompt_sistema = f"""
     Você é o Vortex AI, assistente e operador autônomo da conta cTrader {CTRADER_ACCOUNT} ({CTRADER_SERVER}).
     Estado atual:
     - Ativo: {bot_state['ativo']}
@@ -55,27 +54,24 @@ def consultar_ia_trader(mensagem_usuario):
     - Status do Robô: {bot_state['status_robo']}
     - Estratégia: {bot_state['estrategia']}
 
-    O usuário (Edward) vai conversar com você pelo Telegram.
-    Se ele pedir para alterar o ativo (ex: mudar para EURUSD, operar Ouro, etc), alterar o lote, pausar o robô, ligar o robô ou pedir o status/saldo, você deve responder confirmando a ação de forma clara.
-    Se ele falar de outros assuntos ou sobre a vida, responda como um assistente amigável e prestativo.
-    Seja conciso, direto e inteligente.
+    O usuário (Edward) está conversando com você no Telegram. Responda de forma direta, inteligente e amigável.
     """
 
     data = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": mensagem_usuario}
         ]
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data, timeout=10)
         res_json = response.json()
         if "choices" in res_json:
             resposta = res_json["choices"][0]["message"]["content"]
 
-            # Interpretação automática da IA para atualizar o estado interno do robô
+            # Atualiza estado se necessário
             msg_lower = mensagem_usuario.lower()
             if "eurusd" in msg_lower:
                 bot_state["ativo"] = "EURUSD"
@@ -88,21 +84,20 @@ def consultar_ia_trader(mensagem_usuario):
 
             return resposta
         else:
-            return "Comando recebido, mas tive um pequeno atraso na nuvem."
+            return f"Erro retornado pela Groq: {str(res_json)}"
     except Exception as e:
-        return f"Erro ao consultar cérebro de IA: {str(e)}"
+        return f"Exceção na requisição Groq: {str(e)}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     chat_id = update.message.chat_id
 
     try:
-        # Deixa a IA processar a intenção do usuário
-        resposta_ia = consultar_ia_trader(user_message)
+        resposta_ia = perguntar_ia(user_message)
         await context.bot.send_message(chat_id=chat_id, text=resposta_ia, parse_mode="Markdown")
     except Exception as e:
-        logging.error(f"Erro: {e}")
-        await context.bot.send_message(chat_id=chat_id, text="Erro ao processar comando.")
+        logging.error(f"Erro no handler: {e}")
+        await context.bot.send_message(chat_id=chat_id, text=f"Erro interno: {str(e)}")
 
 async def main_async():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
@@ -112,7 +107,7 @@ async def main_async():
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
 
-    print("Vortex AI Trader Assistant iniciado!")
+    print("Bot Vortex AI com Groq conectado com sucesso!")
     while True:
         await asyncio.sleep(3600)
 
