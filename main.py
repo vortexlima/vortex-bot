@@ -58,7 +58,7 @@ def perguntar_ia(mensagem_usuario):
     """
 
     data = {
-        "model": "llama3-8b-8192",
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": mensagem_usuario}
@@ -94,7 +94,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         resposta_ia = perguntar_ia(user_message)
-        # Removido parse_mode para evitar erros caso a IA envie caracteres markdown corrompidos
         await context.bot.send_message(chat_id=chat_id, text=resposta_ia)
     except Exception as e:
         logging.error(f"Erro no handler: {e}")
