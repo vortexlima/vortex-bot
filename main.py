@@ -26,7 +26,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 # Credenciais
 TELEGRAM_TOKEN = "8032829185:AAGPYud3lah87vnp4EmEW36pe6t8ebpOEsg"
-GROQ_API_KEY = "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"
+GEMINI_API_KEY = "AQ.Ab8RN6IEnbvyqT3vOX2OCaXqclpO6TvKZxvdBcsdpMXnFnNqdw"
 CTRADER_ACCOUNT = "9732891"
 CTRADER_SERVER = "cTrader demo"
 
@@ -39,11 +39,12 @@ bot_state = {
 }
 
 def perguntar_ia(mensagem_usuario):
-    url = "https://api.groq.com/openai/v1/chat/completions"
+    # Endpoint nativo da API do Gemini
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={GEMINI_API_KEY}"
 
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
     }
 
     prompt_sistema = f"""
@@ -58,18 +59,21 @@ def perguntar_ia(mensagem_usuario):
     """
 
     data = {
-        "model": "gemma2-9b-it",
-        "messages": [
-            {"role": "system", "content": prompt_sistema},
-            {"role": "user", "content": mensagem_usuario}
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"{prompt_sistema}\n\nMensagem do usuário: {mensagem_usuario}"}
+                ]
+            }
         ]
     }
 
     try:
         response = requests.post(url, headers=headers, json=data, timeout=10)
         res_json = response.json()
-        if "choices" in res_json:
-            resposta = res_json["choices"][0]["message"]["content"]
+        
+        if "candidates" in res_json:
+            resposta = res_json["candidates"][0]["content"]["parts"][0]["text"]
 
             # Atualiza estado se necessário via chat
             msg_lower = mensagem_usuario.lower()
@@ -84,9 +88,9 @@ def perguntar_ia(mensagem_usuario):
 
             return resposta
         else:
-            return f"Erro retornado pela Groq: {str(res_json)}"
+            return f"Erro retornado pelo Gemini: {str(res_json)}"
     except Exception as e:
-        return f"Exceção na requisição Groq: {str(e)}"
+        return f"Exceção na requisição Gemini: {str(e)}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -107,7 +111,7 @@ async def main_async():
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
 
-    print("Bot Vortex AI com Groq conectado com sucesso!")
+    print("Bot Vortex AI com Gemini conectado com sucesso!")
     while True:
         await asyncio.sleep(3600)
 
