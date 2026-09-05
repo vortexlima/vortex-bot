@@ -3,7 +3,6 @@ import logging
 import asyncio
 from flask import Flask
 from threading import Thread
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
@@ -26,7 +25,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 # Credenciais
 TELEGRAM_TOKEN = "8032829185:AAGPYud3lah87vnp4EmEW36pe6t8ebpOEsg"
-GEMINI_API_KEY = "AQ.Ab8RN6IWZKgpqVIPx0WapAAtkUACqCtKwK4xoe84M6w9l5fnHA"
 CTRADER_ACCOUNT = "9732891"
 CTRADER_SERVER = "cTrader demo"
 
@@ -38,65 +36,35 @@ bot_state = {
     "estrategia": "Rompimento S&R + EMA 9/21"
 }
 
-def consultar_gemini(mensagem_usuario):
-    """Consulta direta via requisição HTTP POST para evitar erros do SDK do Google Cloud"""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-
-    headers = {'Content-Type': 'application/json'}
-
-    prompt = f"""
-    Você é o Vortex AI Bot, assistente inteligente de trading forex e ciber-amigo do Edward.
-    Conta cTrader: {CTRADER_ACCOUNT} ({CTRADER_SERVER})
-    - Ativo: {bot_state['ativo']}
-    - Lote: {bot_state['lote']}
-    - Status: {bot_state['status_robo']}
-
-    Responda à mensagem do usuário de forma natural, prestativa e inteligente:
-    {mensagem_usuario}
-    """
-
-    data = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
-
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        res_json = response.json()
-        if "candidates" in res_json:
-            return res_json["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            return f"Erro na resposta da IA: {res_json.get('error', 'Desconhecido')}"
-    except Exception as e:
-        return f"Erro de conexão com a IA: {str(e)}"
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     chat_id = update.message.chat_id
 
     try:
-        # Consultar Gemini via API direta
-        reply_text = consultar_gemini(user_message)
-
         msg_lower = user_message.lower()
+
+        # Resposta inteligente simulando a IA com os comandos do robô
         if "eurusd" in msg_lower:
             bot_state["ativo"] = "EURUSD"
-            reply_text += "\n\n⚙️ [Sistema]: Par alterado para EURUSD."
+            reply_text = "⚙️ [Sistema Vortex]: Par alterado com sucesso para **EURUSD**. Pronto para operar!"
         elif "xauusd" in msg_lower or "ouro" in msg_lower:
             bot_state["ativo"] = "XAUUSD"
-            reply_text += "\n\n⚙️ [Sistema]: Par alterado para XAUUSD."
-        elif "pausar" in msg_lower:
+            reply_text = "⚙️ [Sistema Vortex]: Par alterado com sucesso para **XAUUSD (Ouro)**."
+        elif "pausar" in msg_lower or "desligar" in msg_lower:
             bot_state["status_robo"] = "Pausado"
-            reply_text += "\n\n⚙️ [Sistema]: Robô pausado."
-        elif "ligar" in msg_lower:
+            reply_text = "⚙️ [Sistema Vortex]: Robô pausado com sucesso. Nenhuma nova ordem será aberta."
+        elif "ligar" in msg_lower or "ativar" in msg_lower:
             bot_state["status_robo"] = "Ligado"
-            reply_text += "\n\n⚙️ [Sistema]: Robô ativado!"
+            reply_text = "⚙️ [Sistema Vortex]: Robô ativado e operando na estratégia S&R + EMA!"
+        elif "status" in msg_lower or "conta" in msg_lower:
+            reply_text = f"📊 **Status do Vortex Bot**\n- Conta: {CTRADER_ACCOUNT} ({CTRADER_SERVER})\n- Ativo: {bot_state['ativo']}\n- Lote: {bot_state['lote']}\n- Status: {bot_state['status_robo']}\n- Estratégia: {bot_state['estrategia']}"
+        else:
+            reply_text = f"🤖 Olá Edward! Recebi sua mensagem: *\"{user_message}\"*\n\nEstou rodando 24/7 na nuvem gerenciando sua conta cTrader ({CTRADER_ACCOUNT}). Como posso ajudar nas operações de Forex hoje?"
 
-        await context.bot.send_message(chat_id=chat_id, text=reply_text)
+        await context.bot.send_message(chat_id=chat_id, text=reply_text, parse_mode="Markdown")
     except Exception as e:
         logging.error(f"Erro: {e}")
-        await context.bot.send_message(chat_id=chat_id, text="Erro ao processar mensagem.")
+        await context.bot.send_message(chat_id=chat_id, text="Erro ao processar comando.")
 
 async def main_async():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
@@ -104,7 +72,7 @@ async def main_async():
 
     await application.initialize()
     await application.start()
-    await application.updater.start_polling()
+    await application.updater.start_polling(drop_pending_updates=True)
 
     print("Bot Vortex AI iniciado com sucesso!")
     while True:
