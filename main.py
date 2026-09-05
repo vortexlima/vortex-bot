@@ -58,7 +58,7 @@ def perguntar_ia(mensagem_usuario):
     """
 
     data = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "llama3-8b-8192",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": mensagem_usuario}
@@ -71,7 +71,7 @@ def perguntar_ia(mensagem_usuario):
         if "choices" in res_json:
             resposta = res_json["choices"][0]["message"]["content"]
 
-            # Atualiza estado se necessário
+            # Atualiza estado se necessário via chat
             msg_lower = mensagem_usuario.lower()
             if "eurusd" in msg_lower:
                 bot_state["ativo"] = "EURUSD"
@@ -94,7 +94,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         resposta_ia = perguntar_ia(user_message)
-        await context.bot.send_message(chat_id=chat_id, text=resposta_ia, parse_mode="Markdown")
+        # Removido parse_mode para evitar erros caso a IA envie caracteres markdown corrompidos
+        await context.bot.send_message(chat_id=chat_id, text=resposta_ia)
     except Exception as e:
         logging.error(f"Erro no handler: {e}")
         await context.bot.send_message(chat_id=chat_id, text=f"Erro interno: {str(e)}")
