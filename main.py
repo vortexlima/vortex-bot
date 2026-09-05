@@ -3,7 +3,7 @@ import logging
 import asyncio
 from flask import Flask
 from threading import Thread
-import google.generativeai as genai
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
@@ -30,10 +30,6 @@ GEMINI_API_KEY = "AQ.Ab8RN6IWZKgpqVIPx0WapAAtkUACqCtKwK4xoe84M6w9l5fnHA"
 CTRADER_ACCOUNT = "9732891"
 CTRADER_SERVER = "cTrader demo"
 
-# Configurar Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
-
 # Estado atual do Robô
 bot_state = {
     "ativo": "XAUUSD",
@@ -42,24 +38,46 @@ bot_state = {
     "estrategia": "Rompimento S&R + EMA 9/21"
 }
 
-SYSTEM_PROMPT = f"""
-Você é o Vortex AI Bot, assistente inteligente de trading forex e ciber-amigo do Edward.
-Conta cTrader: {CTRADER_ACCOUNT} ({CTRADER_SERVER})
-- Ativo: {bot_state['ativo']}
-- Lote: {bot_state['lote']}
-- Status: {bot_state['status_robo']}
-"""
+def consultar_gemini(mensagem_usuario):
+    """Consulta direta via requisição HTTP POST para evitar erros do SDK do Google Cloud"""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-chat_session = model.start_chat(history=[])
+    headers = {'Content-Type': 'application/json'}
+
+    prompt = f"""
+    Você é o Vortex AI Bot, assistente inteligente de trading forex e ciber-amigo do Edward.
+    Conta cTrader: {CTRADER_ACCOUNT} ({CTRADER_SERVER})
+    - Ativo: {bot_state['ativo']}
+    - Lote: {bot_state['lote']}
+    - Status: {bot_state['status_robo']}
+
+    Responda à mensagem do usuário de forma natural, prestativa e inteligente:
+    {mensagem_usuario}
+    """
+
+    data = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        res_json = response.json()
+        if "candidates" in res_json:
+            return res_json["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            return f"Erro na resposta da IA: {res_json.get('error', 'Desconhecido')}"
+    except Exception as e:
+        return f"Erro de conexão com a IA: {str(e)}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     chat_id = update.message.chat_id
 
     try:
-        prompt_completo = f"{SYSTEM_PROMPT}\n\nMensagem do usuário: {user_message}"
-        response = chat_session.send_message(prompt_completo)
-        reply_text = response.text
+        # Consultar Gemini via API direta
+        reply_text = consultar_gemini(user_message)
 
         msg_lower = user_message.lower()
         if "eurusd" in msg_lower:
