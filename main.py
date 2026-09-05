@@ -58,7 +58,7 @@ def perguntar_ia(mensagem_usuario):
     """
 
     data = {
-        "model": "llama-3.1-8b-instant",
+        "model": "gemma2-9b-it",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": mensagem_usuario}
