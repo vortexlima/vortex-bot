@@ -58,7 +58,7 @@ def perguntar_ia(mensagem_usuario):
     """
 
     data = {
-        "model": "llama-3.1-8b-instant",
+        "model": "openai/gpt-oss-20b",
         "messages": [
             {"role": "system", "content": prompt_sistema},
             {"role": "user", "content": mensagem_usuario}
