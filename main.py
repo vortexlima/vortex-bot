@@ -3,9 +3,9 @@ import logging
 import asyncio
 from flask import Flask
 from threading import Thread
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
-from google import genai
 
 # Configurar Flask para manter o Render acordado
 app = Flask('')
@@ -26,12 +26,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 # Credenciais
 TELEGRAM_TOKEN = "8032829185:AAGPYud3lah87vnp4EmEW36pe6t8ebpOEsg"
-GEMINI_API_KEY = "AQ.Ab8RN6IEnbvyqT3vOX2OCaXqclpO6TvKZxvdBcsdpMXnFnNqdw"
+GROQ_API_KEY = "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"
 CTRADER_ACCOUNT = "9732891"
 CTRADER_SERVER = "cTrader demo"
-
-# Inicializar cliente oficial do Google GenAI
-client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Estado atual do Robô
 bot_state = {
@@ -42,6 +39,13 @@ bot_state = {
 }
 
 def perguntar_ia(mensagem_usuario):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
     prompt_sistema = f"""
     Você é o Vortex AI, assistente e operador autônomo da conta cTrader {CTRADER_ACCOUNT} ({CTRADER_SERVER}).
     Estado atual:
@@ -53,28 +57,36 @@ def perguntar_ia(mensagem_usuario):
     O usuário (Edward) está conversando com você no Telegram. Responda de forma direta, inteligente e amigável.
     """
 
+    data = {
+        "model": "gemma2-9b-it",
+        "messages": [
+            {"role": "system", "content": prompt_sistema},
+            {"role": "user", "content": mensagem_usuario}
+        ]
+    }
+
     try:
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-lite',
-            contents=f"{prompt_sistema}\n\nMensagem do usuário: {mensagem_usuario}"
-        )
-        
-        resposta = response.text
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        res_json = response.json()
+        if "choices" in res_json:
+            resposta = res_json["choices"][0]["message"]["content"]
 
-        # Atualiza estado se necessário via chat
-        msg_lower = mensagem_usuario.lower()
-        if "eurusd" in msg_lower:
-            bot_state["ativo"] = "EURUSD"
-        elif "xauusd" in msg_lower or "ouro" in msg_lower:
-            bot_state["ativo"] = "XAUUSD"
-        elif "pausar" in msg_lower or "desligar" in msg_lower:
-            bot_state["status_robo"] = "Pausado"
-        elif "ligar" in msg_lower or "ativar" in msg_lower:
-            bot_state["status_robo"] = "Ligado"
+            # Atualiza estado se necessário via chat
+            msg_lower = mensagem_usuario.lower()
+            if "eurusd" in msg_lower:
+                bot_state["ativo"] = "EURUSD"
+            elif "xauusd" in msg_lower or "ouro" in msg_lower:
+                bot_state["ativo"] = "XAUUSD"
+            elif "pausar" in msg_lower or "desligar" in msg_lower:
+                bot_state["status_robo"] = "Pausado"
+            elif "ligar" in msg_lower or "ativar" in msg_lower:
+                bot_state["status_robo"] = "Ligado"
 
-        return resposta
+            return resposta
+        else:
+            return f"Erro retornado pela Groq: {str(res_json)}"
     except Exception as e:
-        return f"Exceção na requisição Gemini: {str(e)}"
+        return f"Exceção na requisição Groq: {str(e)}"
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -95,7 +107,7 @@ async def main_async():
     await application.start()
     await application.updater.start_polling(drop_pending_updates=True)
 
-    print("Bot Vortex AI com Gemini SDK conectado com sucesso!")
+    print("Bot Vortex AI conectado com sucesso!")
     while True:
         await asyncio.sleep(3600)
 
